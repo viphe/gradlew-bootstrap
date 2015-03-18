@@ -7,16 +7,15 @@ function print_error {
 }
 
 function fetch_version {
-    echo $gradle_version_ref | grep [0-9]
-    if [ echo $gradle_version_ref | grep [0-9] ]; then
-        gradle_version=$gradle_version_ref
-        gradle_download_url="https://services.gradle.org/distributions-snapshots/gradle-${gradle_version}-bin.zip"
-    else
+    
+    if [ "`echo $gradle_version_ref | grep [0-9]`" == "" ]; then
         gradle_version_info=`curl -sSL "http://services.gradle.org/versions/$gradle_version_ref"`
-        gradle_version=`echo $gradle_version_info | sed -e "s/.*\"version\" *: *\"\([^\"]*\)\".*/\1/"`
-        gradle_download_url=`echo $gradle_version_info | sed -e "s/.*\"downloadUrl\" *: *\"\([^\"]*\)\".*/\1/" | sed -e 's/\\\\//g'`
+    else
+        gradle_version_info=`curl -sSL http://services.gradle.org/versions/all | sed ':a;N;$!ba;s/\n//g' | sed 's/\(},\)\? *{/\n/g' | grep "\"version\" *: *\"$gradle_version_ref\""`
     fi
 
+    gradle_version=`echo $gradle_version_info | sed "s/.*\"version\" *: *\"\([^\"]*\)\".*/\1/"`
+    gradle_download_url=`echo $gradle_version_info | sed "s/.*\"downloadUrl\" *: *\"\([^\"]*\)\".*/\1/" | sed 's/\\\\//g'`
 
     if [ "$gradle_version" == "" ]; then
         print_error "unknown gradle reference or version: $gradle_version_ref" 
@@ -31,7 +30,9 @@ function fetch_version {
 
 function get_and_unpack {
     echo "downloading gradle ($gradle_version_ref => $gradle_version) from $gradle_download_url"
-    curl -L $gradle_download_url -o gradle.zip
+    gradle_package=gradle.zip
+    curl -L $gradle_download_url -o $gradle_package
+    trap 'rm -f $gradle_package' EXIT
     unzip -q gradle.zip
     unpack_dir=gradle-$gradle_version 
 }
